@@ -28,7 +28,8 @@ func TestSeek(t *testing.T) {
 
 	foor.SeekBits(8 * 3)
 
-	var u = uint8(foor.GetBitsUnsignedBig(8))
+	lbits, _ := foor.GetBitsUnsignedBig(8)
+	var u = uint8(lbits)
 
 	if u != 3 {
 		t.Errorf("u = %d, want 3", u)
@@ -57,83 +58,83 @@ func TestFloats(t *testing.T) {
 	foor := NewFlobitsDecoder(rbuffer, INTERNAL_BUFFER_LENGTH)
 
 	// test big endian floats and doubles
-	id1 := foor.NextFloat64Big()
+	id1, _ := foor.NextFloat64Big()
 	if id1 != d1 {
 		t.Errorf("id1 = %f, want %f", id1, d1)
 	}
 
-	id1 = foor.GetFloat64Big()
+	id1, _ = foor.GetFloat64Big()
 	if id1 != d1 {
 		t.Errorf("id1 = %f, want %f", id1, d1)
 	}
 
-	if1 := foor.NextFloat32Big()
+	if1, _ := foor.NextFloat32Big()
 	if if1 != f1 {
 		t.Errorf("if1 = %f, want %f", if1, f1)
 	}
 
-	if1 = foor.GetFloat32Big()
+	if1, _ = foor.GetFloat32Big()
 	if if1 != f1 {
 		t.Errorf("if1 = %f, want %f", if1, f1)
 	}
 
-	id2 := foor.NextFloat64Big()
+	id2, _ := foor.NextFloat64Big()
 	if id2 != d2 {
 		t.Errorf("id2 = %f, want %f", id2, d2)
 	}
 
-	id2 = foor.GetFloat64Big()
+	id2, _ = foor.GetFloat64Big()
 	if id2 != d2 {
 		t.Errorf("id2 = %f, want %f", id2, d2)
 	}
 
-	if2 := foor.NextFloat32Big()
+	if2, _ := foor.NextFloat32Big()
 	if if2 != f2 {
 		t.Errorf("if2 = %f, want %f", if2, f2)
 	}
 
-	if2 = foor.GetFloat32Big()
+	if2, _ = foor.GetFloat32Big()
 	if if2 != f2 {
 		t.Errorf("if2 = %f, want %f", if2, f2)
 	}
 
 	// test little endian floats and doubles
-	id1 = foor.NextFloat64Little()
+	id1, _ = foor.NextFloat64Little()
 	if id1 != d1 {
 		t.Errorf("id1 = %f, want %f", id1, d1)
 	}
 
-	id1 = foor.GetFloat64Little()
+	id1, _ = foor.GetFloat64Little()
 	if id1 != d1 {
 		t.Errorf("id1 = %f, want %f", id1, d1)
 	}
 
-	if1 = foor.NextFloat32Little()
+	if1, _ = foor.NextFloat32Little()
 	if if1 != f1 {
 		t.Errorf("if1 = %f, want %f", if1, f1)
 	}
 
-	if1 = foor.GetFloat32Little()
+	if1, _ = foor.GetFloat32Little()
 	if if1 != f1 {
 		t.Errorf("if1 = %f, want %f", if1, f1)
 	}
 
-	id2 = foor.NextFloat64Little()
+	id2, _ = foor.NextFloat64Little()
 	if id2 != d2 {
 		t.Errorf("id2 = %f, want %f", id2, d2)
 	}
 
-	id2 = foor.GetFloat64Little()
+	id2, _ = foor.GetFloat64Little()
 	if id2 != d2 {
 		t.Errorf("id2 = %f, want %f", id2, d2)
 	}
 
-	if2 = foor.NextFloat32Little()
+	if2, _ = foor.NextFloat32Little()
 	if if2 != f2 {
 		t.Errorf("if2 = %f, want %f", if2, f2)
 	}
 
-	if2 = foor.GetFloat32Little()
+	if2, _ = foor.GetFloat32Little()
 	if if2 != f2 {
 		t.Errorf("if2 = %f, want %f", if2, f2)
 	}
@@ -202,7 +203,7 @@ func TestCodes(t *testing.T) {
 
 	// NextCode will search for the given code and return the count of
 	// bits that were skipped over to land at the start of the code
-	code1skipped := foor.NextCode(code1, 32, 0)
+	code1skipped, _ := foor.NextCode(code1, 32, 0)
 	t.Logf("NextCode test skipped %d bits", code1skipped)
 
 	// get the current read bit position
@@ -211,7 +212,7 @@ func TestCodes(t *testing.T) {
 		t.Errorf("icode1pos = %d, want %d", icode1pos, code_one_start_bit)
 	}
 
-	code2skipped := foor.NextCode(code2, 32, 0)
+	code2skipped, _ := foor.NextCode(code2, 32, 0)
 	t.Logf("NextCode test skipped %d bits", code2skipped)
 	icode2pos := foor.GetPos()
 	if icode2pos != code_two_start_bit {
@@ -238,20 +239,20 @@ func TestEndianFloats(t *testing.T) {
 	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
 
 	// read in big endian bits
-	uin := foor.GetBitsUnsignedBig(64)
+	uin, _ := foor.GetBitsUnsignedBig(64)
 	if uin != uout {
 		t.Errorf("uin = %d, want %d", uin, uout)
 	}
 
 	// PROBING the next uint64 as big endian should yield an incorrect value because it
 	// is encoded as little endian
-	uin = foor.NextBitsUnsignedBig(64)
+	uin, _ = foor.NextBitsUnsignedBig(64)
 	if uin == uout {
 		t.Errorf("uin should not be equal to uout")
 	}
 
 	// Getting the next uint64 should be equal to uout
-	uin = foor.GetBitsUnsignedLittle(64)
+	uin, _ = foor.GetBitsUnsignedLittle(64)
 	if uin != uout {
 		t.Errorf("uin = %d, want %d", uin, uout)
 	}
@@ -293,8 +294,10 @@ func TestMonkey(t *testing.T) {
 		foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
 
 		for i := 0; i < test_array_length; i++ {
-			bcount := uint32(foor.GetBitsUnsignedBig(6))
-			buffer_in[i] = uint32(foor.GetBitsUnsignedBig(bcount))
+			lbits, _ := foor.GetBitsUnsignedBig(6)
+			bcount := uint32(lbits)
+			lbits, _ = foor.GetBitsUnsignedBig(bcount)
+			buffer_in[i] = uint32(lbits)
 		}
 
 		if !buffers32Equal(buffer_in, buffer_out) {
@@ -319,12 +322,12 @@ func TestInt64(t *testing.T) {
 	r := bytes.NewReader(w.Bytes())
 	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
 
-	uint_in = foor.GetBitsUnsignedBig(64)
+	uint_in, _ = foor.GetBitsUnsignedBig(64)
 	if uint_in != uint_out {
 		t.Errorf("uint_in = %d, want %d", uint_in, uint_out)
 	}
 	foor.Skipbits(3)
-	uint_in = foor.GetBitsUnsignedBig(64)
+	uint_in, _ = foor.GetBitsUnsignedBig(64)
 	if uint_in != uint_out {
 		t.Errorf("uint_in = %d, want %d", uint_in, uint_out)
 	}
@@ -441,32 +444,32 @@ func TestGeneral(t *testing.T) {
 		t.Error("foor.CanSeek should be true (bytes.Reader implements io.Seeker")
 	}
 
-	float1_in = foor.GetFloat32Big()
+	float1_in, _ = foor.GetFloat32Big()
 	if float1_in != float1_out {
 		t.Errorf("float1_in = %f, want %f", float1_in, float1_out)
 	}
 
-	double1_in = foor.GetFloat64Big()
+	double1_in, _ = foor.GetFloat64Big()
 	if double1_in != double1_out {
 		t.Errorf("double1_in = %f, want %f", double1_in, double1_out)
 	}
 
-	uint1_in = foor.GetBitsUnsignedBig(3)
+	uint1_in, _ = foor.GetBitsUnsignedBig(3)
 	if uint1_in != uint1_out {
 		t.Errorf("uint1_in = %d, want %d", uint1_in, uint1_out)
 	}
 
-	uint2_in = foor.GetBitsUnsignedBig(5)
+	uint2_in, _ = foor.GetBitsUnsignedBig(5)
 	if uint2_in != uint2_out {
 		t.Errorf("uint2_in = %d, want %d", uint2_in, uint2_out)
 	}
 
-	uint3_in = foor.GetBitsUnsignedBig(60)
+	uint3_in, _ = foor.GetBitsUnsignedBig(60)
 	if uint3_in != uint3_out {
 		t.Errorf("uint3_in = %d, want %d", uint3_in, uint3_out)
 	}
 
-	int1_in = foor.GetBitsSignedBig(59)
+	int1_in, _ = foor.GetBitsSignedBig(59)
 	if int1_in != int1_out {
 		t.Errorf("int1_in = %d, want %d", int1_in, int1_out)
 	}
@@ -477,7 +480,8 @@ func TestGeneral(t *testing.T) {
 	}
 
 	for i := 0; i < 8; i = i + 1 {
-		signed_buffer_in[i] = int8(foor.GetBitsSignedBig(3))
+		x, _ := foor.GetBitsSignedBig(3)
+		signed_buffer_in[i] = int8(x)
 	}
 	if !signed_buffersEqual(signed_buffer_in, signed_buffer_out[:]) {
 		t.Errorf("signed_buffer_in and signed_buffer_out be equal")
@@ -499,7 +503,7 @@ func TestGeneral(t *testing.T) {
 	// read 3 bits plus an array of uint64
 	foor.GetBitsUnsignedBig(3)
 	for i := 0; i < large_64_len; i++ {
-		large_64buffer_in[i] = foor.GetBitsUnsignedBig(64)
+		large_64buffer_in[i], _ = foor.GetBitsUnsignedBig(64)
 	}
 
 	if !buffers64Equal(large_64buffer_in, large_64buffer_out) {
@@ -507,7 +511,7 @@ func TestGeneral(t *testing.T) {
 	}
 
 	// read the end code
-	end_code_in = foor.GetBitsUnsignedBig(64)
+	end_code_in, _ = foor.GetBitsUnsignedBig(64)
 	if end_code_in != end_code_out {
 		t.Errorf("end_code_in and end_code_out must be equal")
 	}

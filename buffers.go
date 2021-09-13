@@ -1,17 +1,23 @@
 package flobits
 
+import "io"
+
 // read 'n' bytes into the given buffer
 // returns count of bytes read
-func (me *Flobitsstream) GetBuffer(buffer []uint8, n uint64) uint64 {
+func (me *Flobitsstream) GetBuffer(buffer []uint8, n uint64) (uint64, error) {
 	if n == 0 {
-		return 0
+		return 0, nil
 	}
 
 	var total_bytes_read uint64 = 0
 	if me.cur_bit%8 != 0 {
 		var i uint64
 		for i = 0; i < n; i++ {
-			buffer[i] = uint8(me.GetBitsUnsignedBig(8))
+			lbits, err := me.GetBitsUnsignedBig(8)
+			if err != nil {
+				return total_bytes_read, err
+			}
+			buffer[i] = uint8(lbits)
 			total_bytes_read++
 		}
 	} else {
@@ -52,13 +58,14 @@ func (me *Flobitsstream) GetBuffer(buffer []uint8, n uint64) uint64 {
 			if err != nil {
 				me.end = true
 				me.seterror(E_READ_FAILED)
+				return total_bytes_read, io.EOF
 			}
 		}
 
 		me.tot_bits += total_bytes_read << BSHIFT
 	}
 
-	return total_bytes_read
+	return total_bytes_read, nil
 }
 
 func (me *Flobitsstream) PutBuffer(buffer []uint8) uint64 {

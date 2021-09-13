@@ -2,6 +2,7 @@ package flobits
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 )
 
@@ -15,45 +16,33 @@ func TestReaderOverSimple(t *testing.T) {
 	foor.GetBitsUnsignedBig(64)
 	foor.GetBitsUnsignedBig(64)
 
+	fmt.Println(foor.AvailableBufferBits())
+
 	// the bitstream should be EOF, so the following NextBitsUnsignedBig must yeild an EOF error
-	// _, err := foor.NextFloat32Little()
-	// if err == nil {
-	// 	t.Errorf("NextBitsUnsignedBig must return non-nil error")
-	// }
-}
-
-// GENERICS!!
-/*
-package main
-
-import (
-	"fmt"
-)
-
-// AllInteger is a type constriant that restrics an allowed geric type to only integers
-type AllInteger interface {
-	type int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64
-}
-
-func min[T AllInteger](a, b T) T {
-	if a < b {
-		return a
+	// THIS IS BROKEN! AvailableBufferBits is returning a full buffer available when it should be zero!!!!!
+	_, err := foor.NextFloat32Little()
+	if err == nil {
+		t.Errorf("NextBitsUnsignedBig must return non-nil error")
 	}
-	return b
-}
 
-func getsix[T AllInteger]() (T, error) {
-	return 6, nil
-}
+	available_bits := foor.AvailableBufferBits()
+	if available_bits != 0 {
+		t.Errorf("available_bits should be 0, got %d", available_bits)
+	}
 
-func main() {
-	var i1 uint32 = 3
-	var i2 uint32 = 4
-	m := min(i1,i2)
-	fmt.Printf("%T\n",m)
-	fmt.Println(min(i1, i2))
+	// write 4 more bytes to the testbuffer then refill our read buffer
+	testbuffer.Write([]uint8{0, 0, 0, 0})
+	foor.FillBuffer()
 
-	zzz, _ := getsix[uint64]()
-	fmt.Printf("%d,%T\n",zzz,zzz)
+	// we should now report 32 bits are available in the read buffer
+	available_bits = foor.AvailableBufferBits()
+	if available_bits != 32 {
+		t.Errorf("available_bits should be 32, got %d", available_bits)
+	}
+
+	// we should now be able to read in those 4 bytes
+	_, err = foor.NextFloat32Little()
+	if err != nil {
+		t.Errorf("NextBitsUnsignedBig must return non-nil error")
+	}
 }
-*/

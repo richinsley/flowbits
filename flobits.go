@@ -31,10 +31,12 @@ type Flobitsstream struct {
 	tot_bits uint64 // total bits read/written
 	end      bool   // end of data flag
 	// zcount   uint32 // number of zeros counted on most recent countZero
-	iotype   uint32
-	buf      []uint8
-	err_code Error_t
-	seeker   io.Seeker // seeker interface for given reader/writer if available
+	iotype     uint32
+	buf        []uint8
+	err_code   Error_t
+	seeker     io.Seeker // seeker interface for given reader/writer if available
+	skip_check bool      // when true, skip checking for available data
+	max_len    uint32    // max internal buffer size (may be larger than buf_len)
 }
 
 func NewFlobitsEncoder(w io.Writer, buffer_len int) *Flobitsstream {
@@ -54,6 +56,7 @@ func NewFlobitsEncoder(w io.Writer, buffer_len int) *Flobitsstream {
 		iotype:   BS_OUTPUT,
 		err_code: E_NONE,
 		seeker:   seeker,
+		max_len:  nbuffer_len,
 	}
 }
 
@@ -74,13 +77,14 @@ func NewFlobitsDecoder(r io.Reader, buffer_len int) *Flobitsstream {
 		iotype:   BS_INPUT,
 		err_code: E_NONE,
 		seeker:   seeker,
+		max_len:  nbuffer_len,
 	}
 
 	// fake that we are at the end of buffer before we call fill_buff
 	// or else fill_buf will think we have the entire available buffer as
 	// ready to read data
 	retv.cur_bit = nbuffer_len << BSHIFT
-	retv.fill_buf()
+	retv.FillBuffer()
 
 	return retv
 }
@@ -89,44 +93,42 @@ func (me *Flobitsstream) seterror(err Error_t) {
 	me.err_code = err
 }
 
-// returns the count of BITs that are available in the read buffer
-func (me *Flobitsstream) availableBufferBits() uint64 {
+// AvailableBufferBits returns the count of BITs that are available in the read buffer
+func (me *Flobitsstream) AvailableBufferBits() uint64 {
 	return uint64(me.buf_len)<<uint64(BSHIFT) - uint64(me.cur_bit)
 }
 
-// fills the internal buffer
-func (me *Flobitsstream) fill_buf() {
+// re-fills the internal buffer
+func (me *Flobitsstream) FillBuffer() {
 
-	if me.err_code == E_END_OF_DATA {
-		// we have no more data to fill our buffer
-		return
-	}
+	// reset the err code incase more data was added after the last call
+	me.err_code = E_NONE
 
-	var n uint32 // how many bytes we must fetch (already read)
-	var l int    // how many bytes we will fetch (available)
-	var u uint32 // how many are still unread
+	var n uint32 = me.cur_bit >> BSHIFT // number of spent bytes in the buffer
+	var l int                           // how many bytes we did fetch (available)
+	var u uint32 = me.buf_len - n       // how many bytes are still unread
 	var err error
-
-	n = me.cur_bit >> BSHIFT
-	u = me.buf_len - n
 
 	if u != 0 {
 		// shift unread contents to the beginning of the buffer
 		copy(me.buf, me.buf[n:])
 	}
 
-	// clear the rest of buf
+	// zero out the rest of buf
 	fill_slice(me.buf[u:], 0)
+
+	// we've moved all remaining data to the beginning, so the cur_bit should point to byte 0
+	me.cur_bit &= 7
 
 	l, err = me.reader.Read(me.buf[u:])
 
 	if l == 0 {
 		// we can read no bytes
 		me.end = true
-		me.cur_bit &= 7
+		me.buf_len = u // the buffer length is whatever was left over
 		me.seterror(E_END_OF_DATA)
 		return
-	} else if uint32(l) < n {
+	} else if uint32(l) < me.max_len {
 		// we got some, so we'll assume this is the end of the stream
 		me.end = true
 		me.buf_len = u + uint32(l)
@@ -137,25 +139,22 @@ func (me *Flobitsstream) fill_buf() {
 		me.seterror(E_READ_FAILED)
 		return
 	}
-
-	// now we are at the first byte
-	me.cur_bit &= 7
 }
 
 // flushes buffer and outputs the buffer excluding the left-over bits
-func (me *Flobitsstream) flush_buf() {
+func (me *Flobitsstream) flush_buf() error {
 	if me.iotype == BS_OUTPUT {
 		var l int = int(me.cur_bit >> BSHIFT) // number of bytes written already
 		n, err := me.writer.Write(me.buf[:l])
 
 		if err != nil {
 			me.seterror(E_WRITE_FAILED)
-			return
+			return err
 		}
 
 		if n != l {
 			me.seterror(E_WRITE_FAILED)
-			return
+			return io.ErrShortWrite
 		}
 
 		// are there any left over bits?
@@ -167,6 +166,7 @@ func (me *Flobitsstream) flush_buf() {
 		}
 		me.cur_bit &= 7
 	}
+	return nil
 }
 
 // return the most recent error code
@@ -201,7 +201,7 @@ func (me *Flobitsstream) Skipbits(n uint32) {
 		x -= (buf_size - me.cur_bit)
 		me.cur_bit = buf_size
 		if me.iotype == BS_INPUT {
-			me.fill_buf()
+			me.FillBuffer()
 		} else {
 			me.flush_buf()
 		}
@@ -341,18 +341,32 @@ func (me *Flobitsstream) SeekBits(pos int64) {
 // Search for a specified code (input); returns number of bits skipped, excluding the code.
 // If alen > 0, then output bits up to the specified alen-bit boundary (output); returns number of bits written
 // The code is represented using n bits at alen-bit boundary.
-func (me *Flobitsstream) NextCode(code uint64, num_bits uint32, align_length uint32) uint64 {
+func (me *Flobitsstream) NextCode(code uint64, num_bits uint32, align_length uint32) (uint64, error) {
 	var retv uint64 = 0
 
 	if me.iotype == BS_INPUT {
 		if align_length == 0 {
-			for code != me.NextBitsUnsignedBig(num_bits) {
+			for {
+				// for code != me.NextBitsUnsignedBig(num_bits) {
+				ncode, err := me.NextBitsUnsignedBig(num_bits)
+				if ncode == code {
+					break
+				} else if err != nil {
+					return retv, err
+				}
 				retv += 1
 				me.Skipbits(1)
 			}
 		} else {
 			retv += me.Align(uint64(align_length))
-			for code != me.NextBitsUnsignedBig(num_bits) {
+			for {
+				// for code != me.NextBitsUnsignedBig(num_bits) {
+				ncode, err := me.NextBitsUnsignedBig(num_bits)
+				if ncode == code {
+					break
+				} else if err != nil {
+					return retv, err
+				}
 				retv += uint64(align_length)
 				me.Skipbits(align_length)
 			}
@@ -360,5 +374,5 @@ func (me *Flobitsstream) NextCode(code uint64, num_bits uint32, align_length uin
 	} else {
 		retv = me.Align(uint64(align_length))
 	}
-	return retv
+	return retv, nil
 }

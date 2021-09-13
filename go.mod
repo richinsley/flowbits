@@ -1,5 +1,5 @@
 module github.com/richinsley/flobits
 
-go 1.16
+go 1.18
 
-require github.com/richinsley/purtybits v0.1.0 // indirect
+require github.com/richinsley/purtybits v0.1.0

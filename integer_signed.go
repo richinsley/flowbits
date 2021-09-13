@@ -4,20 +4,20 @@ import (
 	"unsafe"
 )
 
-func (me *Flobitsstream) NextBitsSignedBig(n uint32) int64 {
-	var x uint64 = me.NextBitsUnsignedBig(n)
+func (me *Flobitsstream) NextBitsSignedBig(n uint32) (int64, error) {
+	x, err := me.NextBitsUnsignedBig(n)
 	if (n > 1) && (x&smask[n]) != 0 {
 		x |= cmask[n]
 	}
-	return *(*int64)(unsafe.Pointer(&x))
+	return *(*int64)(unsafe.Pointer(&x)), err
 }
 
-func (me *Flobitsstream) GetBitsSignedBig(n uint32) int64 {
-	var x uint64 = me.GetBitsUnsignedBig(n)
+func (me *Flobitsstream) GetBitsSignedBig(n uint32) (int64, error) {
+	x, err := me.GetBitsUnsignedBig(n)
 	if n > 1 && (x&smask[n]) != 0 {
 		x = x | cmask[n]
 	}
-	return *(*int64)(unsafe.Pointer(&x))
+	return *(*int64)(unsafe.Pointer(&x)), err
 }
 
 func (me *Flobitsstream) PutBitsSignedBig(value int64, n uint32) int64 {
@@ -28,20 +28,20 @@ func (me *Flobitsstream) PutBitsSignedBig(value int64, n uint32) int64 {
 
 // returns 'n' bits as unsigned int with sign extension
 // does not advance bit pointer (sign extension only if n>1)
-func (me *Flobitsstream) NextBitsSignedLittle(n uint32) int64 {
-	x := me.NextBitsUnsignedLittle(n)
+func (me *Flobitsstream) NextBitsSignedLittle(n uint32) (int64, error) {
+	x, err := me.NextBitsUnsignedLittle(n)
 	if n > 1 && (x&smask[n] != 0) {
-		return int64(x | cmask[n])
+		return int64(x | cmask[n]), err
 	}
-	return int64(x)
+	return int64(x), err
 }
 
-func (me *Flobitsstream) GetBitsSignedLittle(n uint32) int64 {
-	var x uint64 = me.GetBitsUnsignedLittle(n)
+func (me *Flobitsstream) GetBitsSignedLittle(n uint32) (int64, error) {
+	x, err := me.GetBitsUnsignedLittle(n)
 	if n > 1 && (x&smask[n]) != 0 {
-		return int64(x | cmask[n])
+		return int64(x | cmask[n]), err
 	}
-	return int64(x)
+	return int64(x), err
 }
 
 func (me *Flobitsstream) PutBitsSignedLittle(value int64, n uint32) int64 {
