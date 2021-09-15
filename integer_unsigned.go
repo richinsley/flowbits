@@ -1,7 +1,6 @@
 package flobits
 
 import (
-	"fmt"
 	"io"
 )
 
@@ -89,6 +88,22 @@ func (me *Flobitsstream) NextBitsUnsignedBig(n uint32) (uint64, error) {
 	return x & mask[n], nil
 }
 
+func (me *Flobitsstream) PutBitsUnsignedLittle(value uint64, n uint32) uint64 {
+	var bytes uint32 = n >> uint32(BSHIFT)
+	var leftbits uint32 = n % 8
+	var byte_x uint64 = 0
+	var i uint32
+	for i = 0; i < bytes; i++ {
+		byte_x = (value >> (8 * i)) & mask[8]
+		me.PutBitsUnsignedBig(byte_x, 8)
+	}
+	if leftbits > 0 {
+		byte_x = (value >> (8 * i)) & mask[leftbits]
+		me.PutBitsUnsignedBig(byte_x, leftbits)
+	}
+	return value
+}
+
 func (me *Flobitsstream) PutBitsUnsignedBig(value uint64, n uint32) uint64 {
 	var delta int                    // required input shift amount
 	var v []uint8                    // current byte
@@ -105,25 +120,66 @@ func (me *Flobitsstream) PutBitsUnsignedBig(value uint64, n uint32) uint64 {
 
 	if delta >= 0 {
 		tmp = val << delta
-		v[0] |= uint8(tmp >> 56)
-		v[1] |= uint8(tmp >> 48)
-		v[2] |= uint8(tmp >> 40)
-		v[3] |= uint8(tmp >> 32)
-		v[4] |= uint8(tmp >> 24)
-		v[5] |= uint8(tmp >> 16)
-		v[6] |= uint8(tmp >> 8)
-		v[7] |= uint8(tmp)
+		write_bytes_count := (64 - delta - 1) >> BSHIFT
+
+		// unroll the byte write loop and minimize byte puts
+		switch write_bytes_count {
+		case 7:
+			v[0] |= uint8(tmp >> 56)
+			v[1] = uint8(tmp >> 48)
+			v[2] = uint8(tmp >> 40)
+			v[3] = uint8(tmp >> 32)
+			v[4] = uint8(tmp >> 24)
+			v[5] = uint8(tmp >> 16)
+			v[6] = uint8(tmp >> 8)
+			v[7] = uint8(tmp)
+		case 6:
+			v[0] |= uint8(tmp >> 56)
+			v[1] = uint8(tmp >> 48)
+			v[2] = uint8(tmp >> 40)
+			v[3] = uint8(tmp >> 32)
+			v[4] = uint8(tmp >> 24)
+			v[5] = uint8(tmp >> 16)
+			v[6] = uint8(tmp >> 8)
+		case 5:
+			v[0] |= uint8(tmp >> 56)
+			v[1] = uint8(tmp >> 48)
+			v[2] = uint8(tmp >> 40)
+			v[3] = uint8(tmp >> 32)
+			v[4] = uint8(tmp >> 24)
+			v[5] = uint8(tmp >> 16)
+		case 4:
+			v[0] |= uint8(tmp >> 56)
+			v[1] = uint8(tmp >> 48)
+			v[2] = uint8(tmp >> 40)
+			v[3] = uint8(tmp >> 32)
+			v[4] = uint8(tmp >> 24)
+		case 3:
+			v[0] |= uint8(tmp >> 56)
+			v[1] = uint8(tmp >> 48)
+			v[2] = uint8(tmp >> 40)
+			v[3] = uint8(tmp >> 32)
+		case 2:
+			v[0] |= uint8(tmp >> 56)
+			v[1] = uint8(tmp >> 48)
+			v[2] = uint8(tmp >> 40)
+		case 1:
+			v[0] |= uint8(tmp >> 56)
+			v[1] = uint8(tmp >> 48)
+		default:
+			v[0] |= uint8(tmp >> 56)
+		}
 	} else {
 		tmp = val >> (-delta)
 		v[0] |= uint8(tmp >> 56)
-		v[1] |= uint8(tmp >> 48)
-		v[2] |= uint8(tmp >> 40)
-		v[3] |= uint8(tmp >> 32)
-		v[4] |= uint8(tmp >> 24)
-		v[5] |= uint8(tmp >> 16)
-		v[6] |= uint8(tmp >> 8)
-		v[7] |= uint8(tmp)
-		v[8] |= (uint8)(value << (8 + delta))
+		v[1] = uint8(tmp >> 48)
+		v[2] = uint8(tmp >> 40)
+		v[3] = uint8(tmp >> 32)
+		v[4] = uint8(tmp >> 24)
+		v[5] = uint8(tmp >> 16)
+		v[6] = uint8(tmp >> 8)
+		v[7] = uint8(tmp)
+		v[8] = (uint8)(value << (8 + delta))
 	}
 
 	me.cur_bit += n
@@ -136,22 +192,6 @@ func (me *Flobitsstream) GetBitsUnsignedBig(n uint32) (uint64, error) {
 	me.cur_bit += n
 	me.tot_bits += uint64(n)
 	return x & mask[n], err
-}
-
-func (me *Flobitsstream) PutBitsUnsignedLittle(value uint64, n uint32) uint64 {
-	var bytes uint32 = n >> uint32(BSHIFT)
-	var leftbits uint32 = n % 8
-	var byte_x uint64 = 0
-	var i uint32
-	for i = 0; i < bytes; i++ {
-		byte_x = (value >> (8 * i)) & mask[8]
-		me.PutBitsUnsignedBig(byte_x, 8)
-	}
-	if leftbits > 0 {
-		byte_x = (value >> (8 * i)) & mask[leftbits]
-		me.PutBitsUnsignedBig(byte_x, leftbits)
-	}
-	return value
 }
 
 func (me *Flobitsstream) GetBitsUnsignedLittle(n uint32) (uint64, error) {
@@ -245,10 +285,6 @@ func (me *Flobitsstream) NextBitsUnsignedLittle(n uint32) (uint64, error) {
 		x |= byte_x
 	}
 
-	// Note that it doesn't make much sense to have a number in little-endian
-	// byte-ordering, where the number of bits used to represent the number is
-	// not a multiple of 8.  Neverthless, we provide a way to take care of
-	// such case.
 	if leftbits > 0 {
 		byte_x, _ = me.NextBitsUnsignedBig(leftbits)
 		byte_x <<= (8 * i)
@@ -257,12 +293,6 @@ func (me *Flobitsstream) NextBitsUnsignedLittle(n uint32) (uint64, error) {
 	me.skip_check = false
 
 	// we temporarily moved the cur_bit value above, so now we need to step it back
-	back := i * 8
-	if back <= me.cur_bit {
-		me.cur_bit = me.cur_bit - (i * 8)
-	} else {
-		fmt.Println("this is a problem")
-		me.cur_bit = 0
-	}
+	me.cur_bit = me.cur_bit - (i * 8)
 	return x, nil
 }

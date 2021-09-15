@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	INTERNAL_BUFFER_LENGTH int = 32
+	INTERNAL_BUFFER_LENGTH int = 409600
 )
 
 func TestSeek(t *testing.T) {
@@ -258,19 +258,50 @@ func TestEndianFloats(t *testing.T) {
 	}
 }
 
-func TestMonkey(t *testing.T) {
-	var test_array_length int = 100000
+func TestLittleIntDelta(t *testing.T) {
+	var out uint64 = 1543572285742637646
+	// 0b000.10101 01101011 11011110 11010000 11010000 11010011 11100010 01001110
+	// 15          6B       DE       D0       D0       D3       E2       4E
+
+	// if we are at a bit 3 offset
+	var skip int = 3
+	w := bytes.Buffer{}
+	foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
+	foow.Skipbits(uint32(skip))
+	foow.PutBitsUnsignedLittle(out, 61)
+	foow.Flushbits()
+
+	// 000 01001.110 11100010 11010011 11010000 11010000 11011110 01101011 10101
+
+	purty := purtybits.NewPurtyBits(4, purtybits.HexCodeGroupToRight)
+	purtyrows := purty.BufferToStrings(w.Bytes())
+	for _, s := range purtyrows {
+		fmt.Println(s)
+	}
+
+	r := bytes.NewReader(w.Bytes())
+	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
+	foor.Skipbits(3)
+
+	in, _ := foor.GetBitsUnsignedLittle(61)
+	if in != out {
+		t.Errorf("in = %d, want %d", in, out)
+	}
+}
+
+func TestFuzz(t *testing.T) {
+	var test_array_length int = 10000
 	var iterations int = 100
 
-	fmt.Printf("TestMonkey iterating over %d arrays of %d values\n", iterations, test_array_length)
+	fmt.Printf("TestFuzz iterating over %d arrays of %d values\n", iterations, test_array_length)
 	for u := 0; u < iterations; u++ {
 		// create a new random seed for each iteration
 		random := rand.New(rand.NewSource(int64(u)))
 
-		// create an array of random uint32 with a range of 0 - 32000
-		var buffer_out []uint32 = make([]uint32, test_array_length)
+		// create an array of random uint64
+		var buffer_out []uint64 = make([]uint64, test_array_length)
 		for i := 0; i < test_array_length; i++ {
-			buffer_out[i] = uint32(random.Int31())
+			buffer_out[i] = uint64(random.Int63())
 		}
 
 		w := bytes.Buffer{}
@@ -278,10 +309,14 @@ func TestMonkey(t *testing.T) {
 		for i := 0; i < test_array_length; i++ {
 			// write out a 6-bit value for the number of bits that uint32 value
 			// requires (this can be done with https://cs.opensource.google/go/go/+/refs/tags/go1.17:src/math/bits/bits.go;l=318 )
-			bcount := bits.Len32(buffer_out[i])
-			foow.PutBitsUnsignedBig(uint64(bcount), 6)
-			// write out the actual value
-			foow.PutBitsUnsignedBig(uint64(buffer_out[i]), uint32(bcount))
+			bcount := bits.Len64(buffer_out[i])
+			foow.PutBitsUnsignedBig(uint64(bcount), 7)
+			// write out the actual value 0 bigE for even, littleE for odd
+			if i%2 == 0 {
+				foow.PutBitsUnsignedBig(uint64(buffer_out[i]), uint32(bcount))
+			} else {
+				foow.PutBitsUnsignedLittle(uint64(buffer_out[i]), uint32(bcount))
+			}
 		}
 
 		// we don't know if the buffer will be byte aligned, so byte align it
@@ -289,18 +324,22 @@ func TestMonkey(t *testing.T) {
 		foow.Flushbits()
 
 		// read the array back in
-		var buffer_in []uint32 = make([]uint32, test_array_length)
+		var buffer_in []uint64 = make([]uint64, test_array_length)
 		r := bytes.NewReader(w.Bytes())
 		foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
 
 		for i := 0; i < test_array_length; i++ {
-			lbits, _ := foor.GetBitsUnsignedBig(6)
+			lbits, _ := foor.GetBitsUnsignedBig(7)
 			bcount := uint32(lbits)
-			lbits, _ = foor.GetBitsUnsignedBig(bcount)
-			buffer_in[i] = uint32(lbits)
+			if i%2 == 0 {
+				lbits, _ = foor.GetBitsUnsignedBig(bcount)
+			} else {
+				lbits, _ = foor.GetBitsUnsignedLittle(bcount)
+			}
+			buffer_in[i] = uint64(lbits)
 		}
 
-		if !buffers32Equal(buffer_in, buffer_out) {
+		if !buffers64Equal(buffer_in, buffer_out) {
 			t.Errorf("buffer_in and buffer_out must be equal at seed %d", u)
 		}
 	}
@@ -311,11 +350,12 @@ func TestInt64(t *testing.T) {
 	foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
 
 	var uint_out uint64 = 0x1122334455667788
-	var tiny_code uint64 = 3
+	var tiny_out uint64 = 0b11 // 3
+	var tiny_in uint64
 	var uint_in uint64
 
 	foow.PutBitsUnsignedBig(uint_out, 64)
-	foow.PutBitsUnsignedBig(tiny_code, 3)
+	foow.PutBitsUnsignedBig(tiny_out, 3)
 	foow.PutBitsUnsignedBig(uint_out, 64)
 	foow.Flushbits()
 
@@ -326,7 +366,12 @@ func TestInt64(t *testing.T) {
 	if uint_in != uint_out {
 		t.Errorf("uint_in = %d, want %d", uint_in, uint_out)
 	}
-	foor.Skipbits(3)
+
+	tiny_in, _ = foor.GetBitsUnsignedBig(3)
+	if tiny_in != tiny_out {
+		t.Errorf("uint_in = %d, want %d", tiny_in, tiny_out)
+	}
+
 	uint_in, _ = foor.GetBitsUnsignedBig(64)
 	if uint_in != uint_out {
 		t.Errorf("uint_in = %d, want %d", uint_in, uint_out)
