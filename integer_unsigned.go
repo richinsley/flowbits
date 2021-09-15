@@ -14,7 +14,7 @@ func (me *Flobitsstream) NextBitsUnsignedBig(n uint32) (uint64, error) {
 	// check if we have enough bits available for the operation
 	// if skip_check is true, another method already checked beforehand
 	if !me.skip_check {
-		err := me.checkEnoughAvailable(n)
+		err := me.checkReadEnoughAvailable(n)
 		if err != nil {
 			return 0, err
 		}
@@ -110,7 +110,7 @@ func (me *Flobitsstream) PutBitsUnsignedBig(value uint64, n uint32) uint64 {
 	var tmp uint64                   // temp value for shifted bits
 	var val uint64 = value & mask[n] // the n-bit value
 
-	if me.AvailableBufferBits() < 64 {
+	if me.AvailableBufferBits() < uint64(n) {
 		me.flush_buf()
 	}
 
@@ -202,7 +202,7 @@ func (me *Flobitsstream) GetBitsUnsignedLittle(n uint32) (uint64, error) {
 	var i uint32 = 0
 
 	// check if we have enough bits available for the operation
-	err := me.checkEnoughAvailable(n)
+	err := me.checkReadEnoughAvailable(n)
 	if err != nil {
 		return 0, err
 	}
@@ -224,7 +224,7 @@ func (me *Flobitsstream) GetBitsUnsignedLittle(n uint32) (uint64, error) {
 	return x, nil
 }
 
-func (me *Flobitsstream) checkEnoughAvailable(n uint32) error {
+func (me *Flobitsstream) checkReadEnoughAvailable(n uint32) error {
 	// ensure we have enough data to read an entire 64 bits.
 	// we are going to walk cur_bit forward 8 bits for every read so we'll
 	// need to walk back cur_bit before we return.  If NextBitsUnsignedLittle were to fill_buf
@@ -269,7 +269,7 @@ func (me *Flobitsstream) NextBitsUnsignedLittle(n uint32) (uint64, error) {
 	var i uint32
 
 	// check if we have enough bits available for the operation
-	err := me.checkEnoughAvailable(n)
+	err := me.checkReadEnoughAvailable(n)
 	if err != nil {
 		return 0, err
 	}

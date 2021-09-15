@@ -14,6 +14,41 @@ const (
 	INTERNAL_BUFFER_LENGTH int = 409600
 )
 
+func TestBool(t *testing.T) {
+	w := bytes.Buffer{}
+	foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
+
+	for i := 0; i < 128; i++ {
+		foow.PutBool(i%2 == 0)
+	}
+
+	// flush the contents of the flobits buffer
+	foow.Flushbits()
+
+	// show our work
+	purty := purtybits.NewPurtyBits(4, purtybits.HexCodeGroupToRight)
+	purtyrows := purty.BufferToStrings(w.Bytes())
+	for _, s := range purtyrows {
+		fmt.Println(s)
+	}
+
+	r := bytes.NewReader(w.Bytes())
+	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
+
+	// peek the first bool
+	b, _ := foor.NextBool()
+	if !b {
+		t.Errorf("Frst bool should be true")
+	}
+
+	for i := 0; i < 128; i++ {
+		b, _ := foor.GetBool()
+		if (i%2 == 0) != b {
+			t.Errorf("incorrect bool")
+		}
+	}
+}
+
 func TestSeek(t *testing.T) {
 	var bufferout [16]uint8 = [16]uint8{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	w := bytes.Buffer{}
