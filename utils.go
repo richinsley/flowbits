@@ -61,6 +61,15 @@ func buffers32Equal(b1 []uint32, b2 []uint32) bool {
 	return true
 }
 
+func (me *Bitstream) seterror(err Error_t) {
+	me.err_code = err
+}
+
+// availableBufferBits returns the count of BITs that are available in the internal read buffer
+func (me *Bitstream) availableBufferBits() uint64 {
+	return uint64(me.buf_len)<<uint64(BSHIFT) - uint64(me.cur_bit)
+}
+
 func (me *Bitstream) checkReadEnoughAvailable(n uint32) error {
 	// ensure we have enough data to read an entire 64 bits.
 	// we are going to walk cur_bit forward 8 bits for every read so we'll
@@ -71,7 +80,7 @@ func (me *Bitstream) checkReadEnoughAvailable(n uint32) error {
 	available := me.availableBufferBits()
 	if available < need {
 		// refill and check available again
-		me.FillBuffer()
+		me.FillReadBuffer()
 		available = me.availableBufferBits()
 		if available < need {
 			return io.EOF

@@ -83,7 +83,7 @@ func (me *Bitstream) PutBuffer(buffer []uint8) uint64 {
 	}
 
 	// we are byte aligned, just flush the internal buffer and write the entire given buffer directly to the writer
-	me.flush_buf()
+	me.flush_write_buffer()
 	wsize, err := me.writer.Write(buffer)
 	me.cur_bit = 0
 	me.tot_bits += uint64(wsize) >> BSHIFT

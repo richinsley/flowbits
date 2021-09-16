@@ -41,7 +41,7 @@ func (me *Bitstream) GetBool() (bool, error) {
 func (me *Bitstream) PutBool(value bool) error {
 	var err error = nil
 	if me.availableBufferBits() < uint64(1) {
-		err = me.flush_buf()
+		err = me.flush_write_buffer()
 	}
 
 	// if we're putting TRUE, or in the charbitmask

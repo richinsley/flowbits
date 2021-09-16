@@ -95,23 +95,14 @@ func NewBitstreamDecoder(r io.Reader, buffer_len int) *Bitstream {
 	// or else fill_buf will think we have the entire available buffer as
 	// ready to read data
 	retv.cur_bit = nbuffer_len << BSHIFT
-	retv.FillBuffer()
+	retv.FillReadBuffer()
 
 	return retv
 }
 
-func (me *Bitstream) seterror(err Error_t) {
-	me.err_code = err
-}
-
-// availableBufferBits returns the count of BITs that are available in the internal read buffer
-func (me *Bitstream) availableBufferBits() uint64 {
-	return uint64(me.buf_len)<<uint64(BSHIFT) - uint64(me.cur_bit)
-}
-
-// FillBuffer re-fills the internal buffer in cases where a io.writer as added additional data
+// FillReadBuffer re-fills the internal read buffer.  This is usefull in cases where an io.writer as added additional data
 // to an io.reader used by a Bitstream decoder.
-func (me *Bitstream) FillBuffer() error {
+func (me *Bitstream) FillReadBuffer() error {
 	if me.iotype == BS_OUTPUT {
 		return nil
 	}
@@ -159,8 +150,8 @@ func (me *Bitstream) FillBuffer() error {
 	return nil
 }
 
-// flush_buf flushes the internal buffer and outputs the buffer excluding the left-over bits
-func (me *Bitstream) flush_buf() error {
+// flush_write_buffer flushes the internal buffer and outputs the buffer excluding the left-over bits
+func (me *Bitstream) flush_write_buffer() error {
 	if me.iotype == BS_OUTPUT {
 		var l int = int(me.cur_bit >> BSHIFT) // number of bytes written already
 		n, err := me.writer.Write(me.buf[:l])
@@ -195,7 +186,7 @@ func (me *Bitstream) GetError() Error_t {
 // Flushbits flushes the buffer.  If the current bit position is not byte aligned, the left-over
 // bits are also output with zero padding.
 func (me *Bitstream) Flushbits() error {
-	err := me.flush_buf()
+	err := me.flush_write_buffer()
 
 	if me.cur_bit == 0 || err != nil {
 		return err
@@ -223,9 +214,9 @@ func (me *Bitstream) Skipbits(n uint32) error {
 		x -= (buf_size - me.cur_bit)
 		me.cur_bit = buf_size
 		if me.iotype == BS_INPUT {
-			err = me.FillBuffer()
+			err = me.FillReadBuffer()
 		} else {
-			err = me.flush_buf()
+			err = me.flush_write_buffer()
 		}
 
 		if err != nil {
@@ -241,26 +232,32 @@ func (me *Bitstream) Skipbits(n uint32) error {
 // Align will align the read or write bit position.
 // alignToBits must be multiple of 8
 // returns number of bits skipped
-func (me *Bitstream) Align(alignToBits uint64) uint64 {
+func (me *Bitstream) Align(alignToBits uint64) (uint64, error) {
 	var s uint64 = 0
 
 	// we only allow alignment on multiples of bytes
 	if alignToBits%8 != 0 {
 		me.seterror(E_INVALID_ALIGNMENT)
-		return 0
+		return 0, errors.New("invalid alignment")
 	}
 
 	// align on next byte
 	if me.tot_bits%8 != 0 {
 		s = 8 - (me.tot_bits % 8)
-		me.Skipbits(uint32(s))
+		err := me.Skipbits(uint32(s))
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	for (me.tot_bits % alignToBits) != 0 {
-		me.Skipbits(8)
+		err := me.Skipbits(8)
+		if err != nil {
+			return s, err
+		}
 		s = s + 8
 	}
-	return s
+	return s, nil
 }
 
 // CanSeek returns true if reader/writer supports random access seeking
@@ -388,7 +385,11 @@ func (me *Bitstream) NextCode(code uint64, num_bits uint32, align_length uint32)
 				me.Skipbits(1)
 			}
 		} else {
-			retv += me.Align(uint64(align_length))
+			s, err := me.Align(uint64(align_length))
+			retv += s
+			if err != nil {
+				return retv, err
+			}
 			for {
 				// for code != me.NextBitsUnsignedBig(num_bits) {
 				ncode, err := me.NextBitsUnsignedBig(num_bits)
@@ -402,7 +403,11 @@ func (me *Bitstream) NextCode(code uint64, num_bits uint32, align_length uint32)
 			}
 		}
 	} else {
-		retv = me.Align(uint64(align_length))
+		var err error
+		retv, err = me.Align(uint64(align_length))
+		if err != nil {
+			return retv, err
+		}
 	}
 	return retv, nil
 }

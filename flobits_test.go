@@ -355,7 +355,9 @@ func TestFuzz(t *testing.T) {
 		}
 
 		// we don't know if the buffer will be byte aligned, so byte align it
-		foow.Align(8)
+		skipped_bits, _ := foow.Align(8)
+		fmt.Printf("Fuzz pass align skipped %d bits\n", skipped_bits)
+
 		foow.Flushbits()
 
 		// read the array back in
@@ -489,7 +491,7 @@ func TestGeneral(t *testing.T) {
 	}
 
 	// align back to 8 bit boundry and re-write 16 byte buffer
-	skippedbits := foow.Align(8)
+	skippedbits, _ := foow.Align(8)
 	if skippedbits != 1 {
 		t.Errorf("skippedbits = %d, want 1", skippedbits)
 	}
