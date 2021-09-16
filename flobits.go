@@ -1,6 +1,14 @@
+// Package Flowbits provides a robust, multi-purpose bitstream parser and encoder that can handle:
+//		Big and little endianness
+//		32 bit and 64 bit floats
+//		Signed and unsigned ints from 1-64 bits in size
+//		Booleans
+//		Random access
+//		Binary code search
 package flobits
 
 import (
+	"errors"
 	"io"
 	"math"
 )
@@ -23,7 +31,8 @@ const (
 	E_SEEK_FAILED
 )
 
-type Flobitsstream struct {
+// Bistream is a bitstream encoder and decoder.
+type Bitstream struct {
 	writer   io.Writer
 	reader   io.Reader
 	buf_len  uint32 // usable buffer size (for partially filled buffers)
@@ -39,14 +48,15 @@ type Flobitsstream struct {
 	max_len    uint32    // max internal buffer size (may be larger than buf_len)
 }
 
-func NewFlobitsEncoder(w io.Writer, buffer_len int) *Flobitsstream {
+// NewBitstreamEncoder creates a new Bitstream encoder instance with the given io.writer and internal buffer size.
+func NewBitstreamEncoder(w io.Writer, buffer_len int) *Bitstream {
 	genMasks()
 
 	// see if the writer also has the seeker interface
 	seeker, _ := interface{}(w).(io.Seeker)
 
 	nbuffer_len := uint32(math.Max(float64(BS_BUF_LEN), float64(buffer_len)))
-	return &Flobitsstream{
+	return &Bitstream{
 		writer:   w,
 		reader:   nil,
 		buf_len:  nbuffer_len,
@@ -60,14 +70,15 @@ func NewFlobitsEncoder(w io.Writer, buffer_len int) *Flobitsstream {
 	}
 }
 
-func NewFlobitsDecoder(r io.Reader, buffer_len int) *Flobitsstream {
+// NewBitstreamDecoder creates a new Bitstream decoder instance with the given io.reader and internal buffer size.
+func NewBitstreamDecoder(r io.Reader, buffer_len int) *Bitstream {
 	genMasks()
 
 	// see if the reader also has the seeker interface
 	seeker, _ := interface{}(r).(io.Seeker)
 
 	nbuffer_len := uint32(math.Max(float64(BS_BUF_LEN), float64(buffer_len)))
-	retv := &Flobitsstream{
+	retv := &Bitstream{
 		writer:   nil,
 		reader:   r,
 		buf_len:  nbuffer_len,
@@ -89,17 +100,21 @@ func NewFlobitsDecoder(r io.Reader, buffer_len int) *Flobitsstream {
 	return retv
 }
 
-func (me *Flobitsstream) seterror(err Error_t) {
+func (me *Bitstream) seterror(err Error_t) {
 	me.err_code = err
 }
 
-// AvailableBufferBits returns the count of BITs that are available in the read buffer
-func (me *Flobitsstream) AvailableBufferBits() uint64 {
+// availableBufferBits returns the count of BITs that are available in the internal read buffer
+func (me *Bitstream) availableBufferBits() uint64 {
 	return uint64(me.buf_len)<<uint64(BSHIFT) - uint64(me.cur_bit)
 }
 
-// re-fills the internal buffer
-func (me *Flobitsstream) FillBuffer() {
+// FillBuffer re-fills the internal buffer in cases where a io.writer as added additional data
+// to an io.reader used by a Bitstream decoder.
+func (me *Bitstream) FillBuffer() error {
+	if me.iotype == BS_OUTPUT {
+		return nil
+	}
 
 	// reset the err code incase more data was added after the last call
 	me.err_code = E_NONE
@@ -127,22 +142,25 @@ func (me *Flobitsstream) FillBuffer() {
 		me.end = true
 		me.buf_len = u // the buffer length is whatever was left over
 		me.seterror(E_END_OF_DATA)
-		return
+		return io.EOF
 	} else if uint32(l) < me.max_len {
-		// we got some, so we'll assume this is the end of the stream
+		// we got some, so we'll assume this is the end of the stream, but not an io error
 		me.end = true
 		me.buf_len = u + uint32(l)
 		me.seterror(E_END_OF_DATA)
+		return nil
 	} else if err != nil {
 		// the dog pulled the plug out of the wall again
 		me.end = true
 		me.seterror(E_READ_FAILED)
-		return
+		return io.ErrUnexpectedEOF
 	}
+
+	return nil
 }
 
-// flushes buffer and outputs the buffer excluding the left-over bits
-func (me *Flobitsstream) flush_buf() error {
+// flush_buf flushes the internal buffer and outputs the buffer excluding the left-over bits
+func (me *Bitstream) flush_buf() error {
 	if me.iotype == BS_OUTPUT {
 		var l int = int(me.cur_bit >> BSHIFT) // number of bytes written already
 		n, err := me.writer.Write(me.buf[:l])
@@ -169,54 +187,65 @@ func (me *Flobitsstream) flush_buf() error {
 	return nil
 }
 
-// return the most recent error code
-func (me *Flobitsstream) GetError() Error_t {
+// GetError returns the most recent internal error code.
+func (me *Bitstream) GetError() Error_t {
 	return me.err_code
 }
 
-// flush the buffer.  left-over bits are also output with zero padding
-func (me *Flobitsstream) Flushbits() {
-	me.flush_buf()
+// Flushbits flushes the buffer.  If the current bit position is not byte aligned, the left-over
+// bits are also output with zero padding.
+func (me *Bitstream) Flushbits() error {
+	err := me.flush_buf()
 
-	if me.cur_bit == 0 {
-		return
+	if me.cur_bit == 0 || err != nil {
+		return err
 	}
 
 	l, err := me.writer.Write(me.buf[:1])
 	if l != 1 || err != nil {
 		me.seterror(E_WRITE_FAILED)
-		return
+		return errors.New("write failed")
 	}
 	me.buf[0] = 0
 	me.cur_bit = 0
+
+	return nil
 }
 
-// skip next n bits (both input/output)
-func (me *Flobitsstream) Skipbits(n uint32) {
+// Skipbits advances the read/write bit position n bits.
+func (me *Bitstream) Skipbits(n uint32) error {
 	x := n
 	buf_size := me.buf_len << BSHIFT
+	var err error = nil
 
 	// make sure we have enough data
 	for me.cur_bit+x > buf_size {
 		x -= (buf_size - me.cur_bit)
 		me.cur_bit = buf_size
 		if me.iotype == BS_INPUT {
-			me.FillBuffer()
+			err = me.FillBuffer()
 		} else {
-			me.flush_buf()
+			err = me.flush_buf()
+		}
+
+		if err != nil {
+			return err
 		}
 	}
 	me.cur_bit += x
 	me.tot_bits += uint64(n)
+
+	return nil
 }
 
-// align bitstream (n must be multiple of 8, both input/output)
+// Align will align the read or write bit position.
+// alignToBits must be multiple of 8
 // returns number of bits skipped
-func (me *Flobitsstream) Align(n uint64) uint64 {
+func (me *Bitstream) Align(alignToBits uint64) uint64 {
 	var s uint64 = 0
 
 	// we only allow alignment on multiples of bytes
-	if n%8 != 0 {
+	if alignToBits%8 != 0 {
 		me.seterror(E_INVALID_ALIGNMENT)
 		return 0
 	}
@@ -227,20 +256,20 @@ func (me *Flobitsstream) Align(n uint64) uint64 {
 		me.Skipbits(uint32(s))
 	}
 
-	for (me.tot_bits % n) != 0 {
+	for (me.tot_bits % alignToBits) != 0 {
 		me.Skipbits(8)
 		s = s + 8
 	}
 	return s
 }
 
-// return true if reader/writer supports seeking
-func (me *Flobitsstream) CanSeek() bool {
+// CanSeek returns true if reader/writer supports random access seeking
+func (me *Bitstream) CanSeek() bool {
 	return me.seeker != nil
 }
 
-// returns the current read/write position in the io device in BITS or -1 if not seekable.
-func (me *Flobitsstream) Tell() int64 {
+// Tell returns the current read/write position in the io device in BITS or -1 if not seekable.
+func (me *Bitstream) Tell() int64 {
 	if !me.CanSeek() {
 		return -1
 	}
@@ -263,7 +292,7 @@ func (me *Flobitsstream) Tell() int64 {
 
 // GetPos returns the current absolute read or write position in bits.  For input streams, this will be the
 // next bit read.  For output streams, this will be the position the bit will be written.
-func (me *Flobitsstream) GetPos() uint64 {
+func (me *Bitstream) GetPos() uint64 {
 	if me.CanSeek() {
 		return uint64(me.Tell())
 	}
@@ -271,12 +300,13 @@ func (me *Flobitsstream) GetPos() uint64 {
 	return me.tot_bits
 }
 
-// return true if at EOF of stream
-func (me *Flobitsstream) AtEnd() bool {
+// EOF returns true if at bitstream is EOF.
+func (me *Bitstream) EOF() bool {
 	return me.end
 }
 
-func (me *Flobitsstream) SeekBits(pos int64) {
+// SeekBits will seek the read or write bit position to the absolute bit position given.
+func (me *Bitstream) SeekBits(pos int64) {
 	if !me.CanSeek() {
 		me.seterror(E_SEEK_FAILED)
 		return
@@ -338,10 +368,10 @@ func (me *Flobitsstream) SeekBits(pos int64) {
 	}
 }
 
-// Search for a specified code (input); returns number of bits skipped, excluding the code.
-// If alen > 0, then output bits up to the specified alen-bit boundary (output); returns number of bits written
-// The code is represented using n bits at alen-bit boundary.
-func (me *Flobitsstream) NextCode(code uint64, num_bits uint32, align_length uint32) (uint64, error) {
+// NextCode searches for a specified code (input); returns number of bits skipped, excluding the code.
+//	If alen > 0, then output bits up to the specified alen-bit boundary (output); returns number of bits written
+//	The code is represented using n bits at alen-bit boundary.
+func (me *Bitstream) NextCode(code uint64, num_bits uint32, align_length uint32) (uint64, error) {
 	var retv uint64 = 0
 
 	if me.iotype == BS_INPUT {

@@ -1,12 +1,7 @@
 package flobits
 
-import (
-	"io"
-)
-
-// NextBitsUnsignedBig returns 'n' bits in big endian order as an unsigned int.
-// This does not advance bit pointer.
-func (me *Flobitsstream) NextBitsUnsignedBig(n uint32) (uint64, error) {
+// NextBitsUnsignedLittle returns 'n' bits in Little Endian as a uint64, but does not advance bit pointer.
+func (me *Bitstream) NextBitsUnsignedBig(n uint32) (uint64, error) {
 	var x uint64    // the value we will return
 	var v []uint8   // the byte where cur_bit points to
 	var delta int32 // number of bits to shift
@@ -88,7 +83,8 @@ func (me *Flobitsstream) NextBitsUnsignedBig(n uint32) (uint64, error) {
 	return x & mask[n], nil
 }
 
-func (me *Flobitsstream) PutBitsUnsignedLittle(value uint64, n uint32) uint64 {
+// PutBitsUnsignedLittle writes 'n' bits as an unsigned int in Little Endian.
+func (me *Bitstream) PutBitsUnsignedLittle(value uint64, n uint32) uint64 {
 	var bytes uint32 = n >> uint32(BSHIFT)
 	var leftbits uint32 = n % 8
 	var byte_x uint64 = 0
@@ -104,13 +100,14 @@ func (me *Flobitsstream) PutBitsUnsignedLittle(value uint64, n uint32) uint64 {
 	return value
 }
 
-func (me *Flobitsstream) PutBitsUnsignedBig(value uint64, n uint32) uint64 {
+// PutBitsUnsignedBig writes 'n' bits as an unsigned int in Big Endian.
+func (me *Bitstream) PutBitsUnsignedBig(value uint64, n uint32) uint64 {
 	var delta int                    // required input shift amount
 	var v []uint8                    // current byte
 	var tmp uint64                   // temp value for shifted bits
 	var val uint64 = value & mask[n] // the n-bit value
 
-	if me.AvailableBufferBits() < uint64(n) {
+	if me.availableBufferBits() < uint64(n) {
 		me.flush_buf()
 	}
 
@@ -187,14 +184,16 @@ func (me *Flobitsstream) PutBitsUnsignedBig(value uint64, n uint32) uint64 {
 	return value
 }
 
-func (me *Flobitsstream) GetBitsUnsignedBig(n uint32) (uint64, error) {
+// GetBitsUnsignedBig returns 'n' bits in Big Endian as a uint64 and advances the bit read position.
+func (me *Bitstream) GetBitsUnsignedBig(n uint32) (uint64, error) {
 	x, err := me.NextBitsUnsignedBig(n)
 	me.cur_bit += n
 	me.tot_bits += uint64(n)
 	return x & mask[n], err
 }
 
-func (me *Flobitsstream) GetBitsUnsignedLittle(n uint32) (uint64, error) {
+// GetBitsUnsignedLittle returns 'n' bits in Little Endian as a uint64 and advances the bit read position.
+func (me *Bitstream) GetBitsUnsignedLittle(n uint32) (uint64, error) {
 	var x uint64 = 0               // the value we will return
 	var bytes uint32 = n >> BSHIFT // number of bytes to read
 	var leftbits uint32 = n % 8    // number of bits to read
@@ -224,44 +223,8 @@ func (me *Flobitsstream) GetBitsUnsignedLittle(n uint32) (uint64, error) {
 	return x, nil
 }
 
-func (me *Flobitsstream) checkReadEnoughAvailable(n uint32) error {
-	// ensure we have enough data to read an entire 64 bits.
-	// we are going to walk cur_bit forward 8 bits for every read so we'll
-	// need to walk back cur_bit before we return.  If NextBitsUnsignedLittle were to fill_buf
-	// while we were reading the bytes, this would break that.  We'll ensure there are
-	// at least 64-bits (uint64 + 8 bits) available to read BEFORE we start probing to prevent that
-	need := uint64(n)
-	available := me.AvailableBufferBits()
-	if available < need {
-		// refill and check available again
-		me.FillBuffer()
-		available = me.AvailableBufferBits()
-		if available < need {
-			return io.EOF
-		}
-	}
-
-	if me.err_code != E_NONE {
-		if me.err_code == E_END_OF_DATA {
-			// re-get available after fill
-			// available = me.AvailableBufferBits()
-			if available == 0 {
-				return io.EOF
-			} else if available < uint64(n) {
-				return io.ErrShortBuffer
-			}
-		} else {
-			// read failed for unknown reasons
-			return io.ErrUnexpectedEOF
-		}
-	}
-
-	return nil
-}
-
-// returns 'n' bits as unsigned int
-// does not advance bit pointer
-func (me *Flobitsstream) NextBitsUnsignedLittle(n uint32) (uint64, error) {
+// NextBitsUnsignedLittle returns 'n' bits in Little Endian as a uint64, but does not advance bit pointer.
+func (me *Bitstream) NextBitsUnsignedLittle(n uint32) (uint64, error) {
 	var x uint64 = 0               // the value we will return
 	var bytes uint32 = n >> BSHIFT // number of bytes to read
 	var leftbits uint32 = n % 8    // number of left-over bits to read

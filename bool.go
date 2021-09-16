@@ -1,6 +1,7 @@
 package flobits
 
-func (me *Flobitsstream) NextBool() (bool, error) {
+// NextBool will return the next boolean value in the bitstream without moving the bit read position.
+func (me *Bitstream) NextBool() (bool, error) {
 	// check if we have enough bits available for the operation
 	// if skip_check is true, another method already checked beforehand
 	var err error = nil
@@ -15,7 +16,8 @@ func (me *Flobitsstream) NextBool() (bool, error) {
 	return me.buf[me.cur_bit>>BSHIFT]&charbitmask[bpos] != 0, err
 }
 
-func (me *Flobitsstream) GetBool() (bool, error) {
+// GetBool will return the next boolean value in the bitstream.  The bit read position is advanced by one.
+func (me *Bitstream) GetBool() (bool, error) {
 	// check if we have enough bits available for the operation
 	// if skip_check is true, another method already checked beforehand
 	var err error = nil
@@ -35,9 +37,10 @@ func (me *Flobitsstream) GetBool() (bool, error) {
 	return retv, err
 }
 
-func (me *Flobitsstream) PutBool(value bool) error {
+// PutBool will write a single bit boolean value to the bitstream.
+func (me *Bitstream) PutBool(value bool) error {
 	var err error = nil
-	if me.AvailableBufferBits() < uint64(1) {
+	if me.availableBufferBits() < uint64(1) {
 		err = me.flush_buf()
 	}
 

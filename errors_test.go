@@ -10,13 +10,13 @@ func TestReaderOverSimple(t *testing.T) {
 	// create a 16 byte buffer
 	testslice := [16]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	testbuffer := bytes.NewBuffer(testslice[:])
-	foor := NewFlobitsDecoder(testbuffer, 16)
+	foor := NewBitstreamDecoder(testbuffer, 16)
 
 	// read two uint64s
 	foor.GetBitsUnsignedBig(64)
 	foor.GetBitsUnsignedBig(64)
 
-	fmt.Println(foor.AvailableBufferBits())
+	fmt.Println(foor.availableBufferBits())
 
 	// the bitstream should be EOF, so the following NextBitsUnsignedBig must yeild an EOF error
 	// THIS IS BROKEN! AvailableBufferBits is returning a full buffer available when it should be zero!!!!!
@@ -25,7 +25,7 @@ func TestReaderOverSimple(t *testing.T) {
 		t.Errorf("NextBitsUnsignedBig must return non-nil error")
 	}
 
-	available_bits := foor.AvailableBufferBits()
+	available_bits := foor.availableBufferBits()
 	if available_bits != 0 {
 		t.Errorf("available_bits should be 0, got %d", available_bits)
 	}
@@ -35,7 +35,7 @@ func TestReaderOverSimple(t *testing.T) {
 	foor.FillBuffer()
 
 	// we should now report 32 bits are available in the read buffer
-	available_bits = foor.AvailableBufferBits()
+	available_bits = foor.availableBufferBits()
 	if available_bits != 32 {
 		t.Errorf("available_bits should be 32, got %d", available_bits)
 	}

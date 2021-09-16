@@ -2,9 +2,8 @@ package flobits
 
 import "io"
 
-// read 'n' bytes into the given buffer
-// returns count of bytes read
-func (me *Flobitsstream) GetBuffer(buffer []uint8, n uint64) (uint64, error) {
+// GetBuffer reads 'n' bytes into the given buffer and returns count of bytes read.
+func (me *Bitstream) GetBuffer(buffer []uint8, n uint64) (uint64, error) {
 	if n == 0 {
 		return 0, nil
 	}
@@ -68,7 +67,8 @@ func (me *Flobitsstream) GetBuffer(buffer []uint8, n uint64) (uint64, error) {
 	return total_bytes_read, nil
 }
 
-func (me *Flobitsstream) PutBuffer(buffer []uint8) uint64 {
+// PutBuffer writes the given buffer to the bitstream advancing the write position to current+(8*buffer_length).
+func (me *Bitstream) PutBuffer(buffer []uint8) uint64 {
 	size := uint64(len(buffer))
 	if size == 0 {
 		return 0

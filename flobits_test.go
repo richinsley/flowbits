@@ -16,7 +16,7 @@ const (
 
 func TestBool(t *testing.T) {
 	w := bytes.Buffer{}
-	foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
+	foow := NewBitstreamEncoder(&w, INTERNAL_BUFFER_LENGTH)
 
 	for i := 0; i < 128; i++ {
 		foow.PutBool(i%2 == 0)
@@ -33,7 +33,7 @@ func TestBool(t *testing.T) {
 	}
 
 	r := bytes.NewReader(w.Bytes())
-	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
+	foor := NewBitstreamDecoder(r, INTERNAL_BUFFER_LENGTH)
 
 	// peek the first bool
 	b, _ := foor.NextBool()
@@ -52,14 +52,14 @@ func TestBool(t *testing.T) {
 func TestSeek(t *testing.T) {
 	var bufferout [16]uint8 = [16]uint8{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	w := bytes.Buffer{}
-	foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
+	foow := NewBitstreamEncoder(&w, INTERNAL_BUFFER_LENGTH)
 	foow.PutBuffer(bufferout[:])
 
 	// flush the contents of the flobits buffer
 	foow.Flushbits()
 
 	r := bytes.NewReader(w.Bytes())
-	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
+	foor := NewBitstreamDecoder(r, INTERNAL_BUFFER_LENGTH)
 
 	foor.SeekBits(8 * 3)
 
@@ -90,7 +90,7 @@ func TestFloats(t *testing.T) {
 		121, 68, 234, 214, 252, 72, 80, 96, 128, 65, 55, 26, 122, 68}
 
 	rbuffer := bytes.NewBuffer(bufferin)
-	foor := NewFlobitsDecoder(rbuffer, INTERNAL_BUFFER_LENGTH)
+	foor := NewBitstreamDecoder(rbuffer, INTERNAL_BUFFER_LENGTH)
 
 	// test big endian floats and doubles
 	id1, _ := foor.NextFloat64Big()
@@ -178,7 +178,7 @@ func TestFloats(t *testing.T) {
 func TestReaderInit(t *testing.T) {
 	var bufferin []uint8 = []uint8{0, 0, 0, 0, 0, 0, 0, 0}
 	rbuffer := bytes.NewBuffer(bufferin)
-	foor := NewFlobitsDecoder(rbuffer, INTERNAL_BUFFER_LENGTH)
+	foor := NewBitstreamDecoder(rbuffer, INTERNAL_BUFFER_LENGTH)
 	if foor.cur_bit != 0 {
 		t.Errorf("foor.cur_bit = %d, want 0", foor.cur_bit)
 	}
@@ -196,7 +196,7 @@ func TestCodes(t *testing.T) {
 	purty := purtybits.NewPurtyBits(8, purtybits.HexCodeGroupToRight)
 
 	w := bytes.Buffer{}
-	foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
+	foow := NewBitstreamEncoder(&w, INTERNAL_BUFFER_LENGTH)
 
 	// the default internal buffer size is 64 bytes.
 	// write out 63 bytes of '0xff' then write out the code we'll search for
@@ -234,7 +234,7 @@ func TestCodes(t *testing.T) {
 	}
 
 	r := bytes.NewReader(w.Bytes())
-	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
+	foor := NewBitstreamDecoder(r, INTERNAL_BUFFER_LENGTH)
 
 	// NextCode will search for the given code and return the count of
 	// bits that were skipped over to land at the start of the code
@@ -257,7 +257,7 @@ func TestCodes(t *testing.T) {
 
 func TestEndianFloats(t *testing.T) {
 	w := bytes.Buffer{}
-	foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
+	foow := NewBitstreamEncoder(&w, INTERNAL_BUFFER_LENGTH)
 	var uout uint64 = 0x00aabbccddeeff11
 	foow.PutBitsUnsignedBig(uout, 64)
 	foow.PutBitsUnsignedLittle(uout, 64)
@@ -271,7 +271,7 @@ func TestEndianFloats(t *testing.T) {
 	}
 
 	r := bytes.NewReader(w.Bytes())
-	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
+	foor := NewBitstreamDecoder(r, INTERNAL_BUFFER_LENGTH)
 
 	// read in big endian bits
 	uin, _ := foor.GetBitsUnsignedBig(64)
@@ -301,7 +301,7 @@ func TestLittleIntDelta(t *testing.T) {
 	// if we are at a bit 3 offset
 	var skip int = 3
 	w := bytes.Buffer{}
-	foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
+	foow := NewBitstreamEncoder(&w, INTERNAL_BUFFER_LENGTH)
 	foow.Skipbits(uint32(skip))
 	foow.PutBitsUnsignedLittle(out, 61)
 	foow.Flushbits()
@@ -315,7 +315,7 @@ func TestLittleIntDelta(t *testing.T) {
 	}
 
 	r := bytes.NewReader(w.Bytes())
-	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
+	foor := NewBitstreamDecoder(r, INTERNAL_BUFFER_LENGTH)
 	foor.Skipbits(3)
 
 	in, _ := foor.GetBitsUnsignedLittle(61)
@@ -340,7 +340,7 @@ func TestFuzz(t *testing.T) {
 		}
 
 		w := bytes.Buffer{}
-		foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
+		foow := NewBitstreamEncoder(&w, INTERNAL_BUFFER_LENGTH)
 		for i := 0; i < test_array_length; i++ {
 			// write out a 6-bit value for the number of bits that uint32 value
 			// requires (this can be done with https://cs.opensource.google/go/go/+/refs/tags/go1.17:src/math/bits/bits.go;l=318 )
@@ -361,7 +361,7 @@ func TestFuzz(t *testing.T) {
 		// read the array back in
 		var buffer_in []uint64 = make([]uint64, test_array_length)
 		r := bytes.NewReader(w.Bytes())
-		foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
+		foor := NewBitstreamDecoder(r, INTERNAL_BUFFER_LENGTH)
 
 		for i := 0; i < test_array_length; i++ {
 			lbits, _ := foor.GetBitsUnsignedBig(7)
@@ -382,7 +382,7 @@ func TestFuzz(t *testing.T) {
 
 func TestInt64(t *testing.T) {
 	w := bytes.Buffer{}
-	foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
+	foow := NewBitstreamEncoder(&w, INTERNAL_BUFFER_LENGTH)
 
 	var uint_out uint64 = 0x1122334455667788
 	var tiny_out uint64 = 0b11 // 3
@@ -395,7 +395,7 @@ func TestInt64(t *testing.T) {
 	foow.Flushbits()
 
 	r := bytes.NewReader(w.Bytes())
-	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
+	foor := NewBitstreamDecoder(r, INTERNAL_BUFFER_LENGTH)
 
 	uint_in, _ = foor.GetBitsUnsignedBig(64)
 	if uint_in != uint_out {
@@ -415,7 +415,7 @@ func TestInt64(t *testing.T) {
 
 func TestGeneral(t *testing.T) {
 	w := bytes.Buffer{}
-	foow := NewFlobitsEncoder(&w, INTERNAL_BUFFER_LENGTH)
+	foow := NewBitstreamEncoder(&w, INTERNAL_BUFFER_LENGTH)
 
 	if foow.CanSeek() {
 		t.Error("foow.CanSeek should be false (bytes.Buffer does not implement io.Seeker")
@@ -518,7 +518,7 @@ func TestGeneral(t *testing.T) {
 	foow.Flushbits()
 
 	r := bytes.NewReader(w.Bytes())
-	foor := NewFlobitsDecoder(r, INTERNAL_BUFFER_LENGTH)
+	foor := NewBitstreamDecoder(r, INTERNAL_BUFFER_LENGTH)
 
 	if !foor.CanSeek() {
 		t.Error("foor.CanSeek should be true (bytes.Reader implements io.Seeker")
