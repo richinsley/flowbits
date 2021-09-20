@@ -14,7 +14,9 @@ const (
 	INTERNAL_BUFFER_LENGTH int = 1024
 )
 
-func TestHelpers(t *testing.T) {
+func TestBigEndianTypeHelpers(t *testing.T) {
+
+	// some arbitrary int values
 	var u8 uint8 = 127
 	var i8 int8 = -127
 	var u16 uint16 = 10000
@@ -26,26 +28,26 @@ func TestHelpers(t *testing.T) {
 
 	w1 := bytes.Buffer{}
 	foow1 := NewBitstreamEncoder(&w1, INTERNAL_BUFFER_LENGTH)
-	foow1.PutWithSizeUint8(u8, 8)
-	foow1.PutWithSizeInt8(i8, 8)
-	foow1.PutWithSizeUint16(u16, 16)
-	foow1.PutWithSizeInt16(i16, 16)
-	foow1.PutWithSizeUint32(u32, 32)
-	foow1.PutWithSizeInt32(i32, 32)
-	foow1.PutWithSizeUint64(u64, 64)
-	foow1.PutWithSizeInt64(i64, 64)
+	foow1.PutWithBitCountUint8(u8, 8)
+	foow1.PutWithBitCountInt8(i8, 8)
+	foow1.PutWithBitCountBigUint16(u16, 16)
+	foow1.PutWithBitCountBigInt16(i16, 16)
+	foow1.PutWithBitCountBigUint32(u32, 32)
+	foow1.PutWithBitCountBigInt32(i32, 32)
+	foow1.PutWithBitCountBigUint64(u64, 64)
+	foow1.PutWithBitCountBigInt64(i64, 64)
 	foow1.Flushbits()
 
 	w2 := bytes.Buffer{}
 	foow2 := NewBitstreamEncoder(&w2, INTERNAL_BUFFER_LENGTH)
 	foow2.PutUint8(u8)
 	foow2.PutInt8(i8)
-	foow2.PutUint16(u16)
-	foow2.PutInt16(i16)
-	foow2.PutUint32(u32)
-	foow2.PutInt32(i32)
-	foow2.PutUint64(u64)
-	foow2.PutInt64(i64)
+	foow2.PutBigUint16(u16)
+	foow2.PutBigInt16(i16)
+	foow2.PutBigUint32(u32)
+	foow2.PutBigInt32(i32)
+	foow2.PutBigUint64(u64)
+	foow2.PutBigInt64(i64)
 	foow2.Flushbits()
 
 	// compare the 2 buffers
@@ -62,22 +64,79 @@ func TestHelpers(t *testing.T) {
 	if v, _ := foor.GetInt8(); v != i8 {
 		t.Errorf("%d and %d should be equal", v, i8)
 	}
-	if v, _ := foor.GetUint16(); v != u16 {
+	if v, _ := foor.GetBigUint16(); v != u16 {
 		t.Errorf("%d and %d should be equal", v, u16)
 	}
-	if v, _ := foor.GetInt16(); v != i16 {
+	if v, _ := foor.GetBigInt16(); v != i16 {
 		t.Errorf("%d and %d should be equal", v, i16)
 	}
-	if v, _ := foor.GetUint32(); v != u32 {
+	if v, _ := foor.GetBigUint32(); v != u32 {
 		t.Errorf("%d and %d should be equal", v, u16)
 	}
-	if v, _ := foor.GetInt32(); v != i32 {
+	if v, _ := foor.GetBigInt32(); v != i32 {
 		t.Errorf("%d and %d should be equal", v, i32)
 	}
-	if v, _ := foor.GetUint64(); v != u64 {
+	if v, _ := foor.GetBigUint64(); v != u64 {
 		t.Errorf("%d and %d should be equal", v, u64)
 	}
-	if v, _ := foor.GetInt64(); v != i64 {
+	if v, _ := foor.GetBigInt64(); v != i64 {
+		t.Errorf("%d and %d should be equal", v, i64)
+	}
+
+	w3 := bytes.Buffer{}
+	foow3 := NewBitstreamEncoder(&w3, INTERNAL_BUFFER_LENGTH)
+	foow3.PutWithBitCountUint8(u8, 8)
+	foow3.PutWithBitCountInt8(i8, 8)
+	foow3.PutWithBitCountLittleUint16(u16, 16)
+	foow3.PutWithBitCountLittleInt16(i16, 16)
+	foow3.PutWithBitCountLittleUint32(u32, 32)
+	foow3.PutWithBitCountLittleInt32(i32, 32)
+	foow3.PutWithBitCountLittleUint64(u64, 64)
+	foow3.PutWithBitCountLittleInt64(i64, 64)
+	foow3.Flushbits()
+
+	w4 := bytes.Buffer{}
+	foow4 := NewBitstreamEncoder(&w4, INTERNAL_BUFFER_LENGTH)
+	foow4.PutUint8(u8)
+	foow4.PutInt8(i8)
+	foow4.PutLittleUint16(u16)
+	foow4.PutLittleInt16(i16)
+	foow4.PutLittleUint32(u32)
+	foow4.PutLittleInt32(i32)
+	foow4.PutLittleUint64(u64)
+	foow4.PutLittleInt64(i64)
+	foow4.Flushbits()
+
+	// compare the 2 buffers
+	if !unsigned_buffersEqual(w3.Bytes(), w4.Bytes()) {
+		t.Errorf("Both write buffers should be equal")
+	}
+
+	r2 := bytes.NewReader(w3.Bytes())
+	foor2 := NewBitstreamDecoder(r2, INTERNAL_BUFFER_LENGTH)
+
+	if v, _ := foor2.GetUint8(); v != u8 {
+		t.Errorf("%d and %d should be equal", v, u8)
+	}
+	if v, _ := foor2.GetInt8(); v != i8 {
+		t.Errorf("%d and %d should be equal", v, i8)
+	}
+	if v, _ := foor2.GetLittleUint16(); v != u16 {
+		t.Errorf("%d and %d should be equal", v, u16)
+	}
+	if v, _ := foor2.GetLittleInt16(); v != i16 {
+		t.Errorf("%d and %d should be equal", v, i16)
+	}
+	if v, _ := foor2.GetLittleUint32(); v != u32 {
+		t.Errorf("%d and %d should be equal", v, u16)
+	}
+	if v, _ := foor2.GetLittleInt32(); v != i32 {
+		t.Errorf("%d and %d should be equal", v, i32)
+	}
+	if v, _ := foor2.GetLittleUint64(); v != u64 {
+		t.Errorf("%d and %d should be equal", v, u64)
+	}
+	if v, _ := foor2.GetLittleInt64(); v != i64 {
 		t.Errorf("%d and %d should be equal", v, i64)
 	}
 }
