@@ -5,15 +5,15 @@ import (
 )
 
 // PutFloat32Big writes the given float32 to the bitstream in Big Endian format.
-func (me *Bitstream) PutFloat32Big(value float32) {
+func (me *Bitstream) PutFloat32Big(value float32) error {
 	fp := *(*uint32)(unsafe.Pointer(&value))
-	me.PutBitsUnsignedBig(uint64(fp), 32)
+	return me.PutBitsUnsignedBig(uint64(fp), 32)
 }
 
 // PutFloat32Little writes the given float32 to the bitstream in Little Endian format.
-func (me *Bitstream) PutFloat32Little(value float32) {
+func (me *Bitstream) PutFloat32Little(value float32) error {
 	fp := *(*uint32)(unsafe.Pointer(&value))
-	me.PutBitsUnsignedLittle(uint64(fp), 32)
+	return me.PutBitsUnsignedLittle(uint64(fp), 32)
 }
 
 // GetFloat32Big reads a float32 value from the bitstream in Big Endian format and advances the bit read position.
@@ -47,15 +47,15 @@ func (me *Bitstream) NextFloat32Little() (float32, error) {
 }
 
 // PutFloat64Big writes the given float64 to the bitstream in Big Endian format.
-func (me *Bitstream) PutFloat64Big(value float64) {
+func (me *Bitstream) PutFloat64Big(value float64) error {
 	fp := *(*uint64)(unsafe.Pointer(&value))
-	me.PutBitsUnsignedBig(uint64(fp), 64)
+	return me.PutBitsUnsignedBig(uint64(fp), 64)
 }
 
 // PutFloat64Little writes the given float64 to the bitstream in Little Endian format.
-func (me *Bitstream) PutFloat64Little(value float64) {
+func (me *Bitstream) PutFloat64Little(value float64) error {
 	fp := *(*uint64)(unsafe.Pointer(&value))
-	me.PutBitsUnsignedLittle(uint64(fp), 64)
+	return me.PutBitsUnsignedLittle(uint64(fp), 64)
 }
 
 // GetFloat64Big reads a float64 value from the bitstream in Big Endian format and advances the bit read position.

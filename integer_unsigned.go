@@ -84,7 +84,7 @@ func (me *Bitstream) NextBitsUnsignedBig(n uint32) (uint64, error) {
 }
 
 // PutBitsUnsignedLittle writes 'n' bits as an unsigned int in Little Endian.
-func (me *Bitstream) PutBitsUnsignedLittle(value uint64, n uint32) (uint64, error) {
+func (me *Bitstream) PutBitsUnsignedLittle(value uint64, n uint32) error {
 	var bytes uint32 = n >> uint32(BSHIFT)
 	var leftbits uint32 = n % 8
 	var byte_x uint64 = 0
@@ -92,23 +92,23 @@ func (me *Bitstream) PutBitsUnsignedLittle(value uint64, n uint32) (uint64, erro
 	var err error = nil
 	for i = 0; i < bytes; i++ {
 		byte_x = (value >> (8 * i)) & mask[8]
-		_, err = me.PutBitsUnsignedBig(byte_x, 8)
+		err = me.PutBitsUnsignedBig(byte_x, 8)
 		if err != nil {
-			return 0, err
+			return err
 		}
 	}
 	if leftbits > 0 {
 		byte_x = (value >> (8 * i)) & mask[leftbits]
-		_, err = me.PutBitsUnsignedBig(byte_x, leftbits)
+		err = me.PutBitsUnsignedBig(byte_x, leftbits)
 		if err != nil {
-			return 0, err
+			return err
 		}
 	}
-	return value, err
+	return err
 }
 
 // PutBitsUnsignedBig writes 'n' bits as an unsigned int in Big Endian.
-func (me *Bitstream) PutBitsUnsignedBig(value uint64, n uint32) (uint64, error) {
+func (me *Bitstream) PutBitsUnsignedBig(value uint64, n uint32) error {
 	var delta int                    // required input shift amount
 	var v []uint8                    // current byte
 	var tmp uint64                   // temp value for shifted bits
@@ -118,7 +118,7 @@ func (me *Bitstream) PutBitsUnsignedBig(value uint64, n uint32) (uint64, error) 
 	if me.availableBufferBits() < uint64(n) {
 		err = me.flush_write_buffer()
 		if err != nil {
-			return 0, err
+			return err
 		}
 	}
 
@@ -192,7 +192,7 @@ func (me *Bitstream) PutBitsUnsignedBig(value uint64, n uint32) (uint64, error) 
 
 	me.cur_bit += n
 	me.tot_bits += uint64(n)
-	return value, err
+	return err
 }
 
 // GetBitsUnsignedBig returns 'n' bits in Big Endian as a uint64 and advances the bit read position.

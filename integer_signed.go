@@ -25,10 +25,9 @@ func (me *Bitstream) GetBitsSignedBig(n uint32) (int64, error) {
 }
 
 // PutBitsSignedBig writes 'n' bits as a signed int in Big Endian. (sign extension only if n>1)
-func (me *Bitstream) PutBitsSignedBig(value int64, n uint32) (int64, error) {
+func (me *Bitstream) PutBitsSignedBig(value int64, n uint32) error {
 	up := *(*uint64)(unsafe.Pointer(&value))
-	retv, err := me.PutBitsUnsignedBig(up, n)
-	return *(*int64)(unsafe.Pointer(&retv)), err
+	return me.PutBitsUnsignedBig(up, n)
 }
 
 // NextBitsSignedLittle returns 'n' bits in Little Endian as an int64 with sign extension
@@ -52,8 +51,7 @@ func (me *Bitstream) GetBitsSignedLittle(n uint32) (int64, error) {
 }
 
 // PutBitsSignedLittle writes 'n' bits as a signed int in Little Endian. (sign extension only if n>1)
-func (me *Bitstream) PutBitsSignedLittle(value int64, n uint32) (int64, error) {
+func (me *Bitstream) PutBitsSignedLittle(value int64, n uint32) error {
 	up := *(*uint64)(unsafe.Pointer(&value))
-	retv, err := me.PutBitsUnsignedLittle(up, n)
-	return *(*int64)(unsafe.Pointer(&retv)), err
+	return me.PutBitsUnsignedLittle(up, n)
 }

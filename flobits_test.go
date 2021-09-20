@@ -11,8 +11,76 @@ import (
 )
 
 const (
-	INTERNAL_BUFFER_LENGTH int = 409600
+	INTERNAL_BUFFER_LENGTH int = 1024
 )
+
+func TestHelpers(t *testing.T) {
+	var u8 uint8 = 127
+	var i8 int8 = -127
+	var u16 uint16 = 10000
+	var i16 int16 = -10000
+	var u32 uint32 = 4096
+	var i32 int32 = -4096
+	var u64 uint64 = 99999999
+	var i64 int64 = -99999999
+
+	w1 := bytes.Buffer{}
+	foow1 := NewBitstreamEncoder(&w1, INTERNAL_BUFFER_LENGTH)
+	foow1.PutWithSizeUint8(u8, 8)
+	foow1.PutWithSizeInt8(i8, 8)
+	foow1.PutWithSizeUint16(u16, 16)
+	foow1.PutWithSizeInt16(i16, 16)
+	foow1.PutWithSizeUint32(u32, 32)
+	foow1.PutWithSizeInt32(i32, 32)
+	foow1.PutWithSizeUint64(u64, 64)
+	foow1.PutWithSizeInt64(i64, 64)
+	foow1.Flushbits()
+
+	w2 := bytes.Buffer{}
+	foow2 := NewBitstreamEncoder(&w2, INTERNAL_BUFFER_LENGTH)
+	foow2.PutUint8(u8)
+	foow2.PutInt8(i8)
+	foow2.PutUint16(u16)
+	foow2.PutInt16(i16)
+	foow2.PutUint32(u32)
+	foow2.PutInt32(i32)
+	foow2.PutUint64(u64)
+	foow2.PutInt64(i64)
+	foow2.Flushbits()
+
+	// compare the 2 buffers
+	if !unsigned_buffersEqual(w1.Bytes(), w2.Bytes()) {
+		t.Errorf("Both write buffers should be equal")
+	}
+
+	r := bytes.NewReader(w1.Bytes())
+	foor := NewBitstreamDecoder(r, INTERNAL_BUFFER_LENGTH)
+
+	if v, _ := foor.GetUint8(); v != u8 {
+		t.Errorf("%d and %d should be equal", v, u8)
+	}
+	if v, _ := foor.GetInt8(); v != i8 {
+		t.Errorf("%d and %d should be equal", v, i8)
+	}
+	if v, _ := foor.GetUint16(); v != u16 {
+		t.Errorf("%d and %d should be equal", v, u16)
+	}
+	if v, _ := foor.GetInt16(); v != i16 {
+		t.Errorf("%d and %d should be equal", v, i16)
+	}
+	if v, _ := foor.GetUint32(); v != u32 {
+		t.Errorf("%d and %d should be equal", v, u16)
+	}
+	if v, _ := foor.GetInt32(); v != i32 {
+		t.Errorf("%d and %d should be equal", v, i32)
+	}
+	if v, _ := foor.GetUint64(); v != u64 {
+		t.Errorf("%d and %d should be equal", v, u64)
+	}
+	if v, _ := foor.GetInt64(); v != i64 {
+		t.Errorf("%d and %d should be equal", v, i64)
+	}
+}
 
 func TestBool(t *testing.T) {
 	w := bytes.Buffer{}
@@ -38,7 +106,7 @@ func TestBool(t *testing.T) {
 	// peek the first bool
 	b, _ := foor.NextBool()
 	if !b {
-		t.Errorf("Frst bool should be true")
+		t.Errorf("First bool should be true")
 	}
 
 	for i := 0; i < 128; i++ {
