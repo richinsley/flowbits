@@ -5,7 +5,7 @@
 //		Booleans
 //		Random access
 //		Binary code search
-package flobits
+package flowbits
 
 import (
 	"errors"

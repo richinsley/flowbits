@@ -1,4 +1,4 @@
-package flobits
+package flowbits
 
 // NextBool will return the next boolean value in the bitstream without moving the bit read position.
 func (me *Bitstream) NextBool() (bool, error) {

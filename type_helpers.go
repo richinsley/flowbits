@@ -1,4 +1,4 @@
-package flobits
+package flowbits
 
 // Uint8 helpers
 

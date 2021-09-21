@@ -1,4 +1,4 @@
-package flobits
+package flowbits
 
 import (
 	"bytes"
@@ -149,7 +149,7 @@ func TestBool(t *testing.T) {
 		foow.PutBool(i%2 == 0)
 	}
 
-	// flush the contents of the flobits buffer
+	// flush the contents of the flowbits buffer
 	foow.Flushbits()
 
 	// show our work
@@ -182,7 +182,7 @@ func TestSeek(t *testing.T) {
 	foow := NewBitstreamEncoder(&w, INTERNAL_BUFFER_LENGTH)
 	foow.PutBuffer(bufferout[:])
 
-	// flush the contents of the flobits buffer
+	// flush the contents of the flowbits buffer
 	foow.Flushbits()
 
 	r := bytes.NewReader(w.Bytes())
@@ -211,7 +211,7 @@ func TestFloats(t *testing.T) {
 	var d2 float64 = 34343433.123456789
 	var f2 float32 = f1 + 0.5
 
-	// the above floats and doubles generated on an ARM system with the C++ version of flobits
+	// the above floats and doubles generated on an ARM system with the C++ version of flowbits
 	var bufferin []uint8 = []uint8{65, 157, 111, 52, 85, 95, 173, 64, 68, 121, 250, 55, 65, 128,
 		96, 80, 72, 252, 214, 234, 68, 122, 26, 55, 64, 173, 95, 85, 52, 111, 157, 65, 55, 250,
 		121, 68, 234, 214, 252, 72, 80, 96, 128, 65, 55, 26, 122, 68}
@@ -348,7 +348,7 @@ func TestCodes(t *testing.T) {
 	code_two_end_bit := int(foow.GetPos() - 1)
 	purty.ColorBitRange(int(code_two_start_bit), code_two_end_bit, purtybits.PurtyBitColorWhiteOnRed("1"), purtybits.PurtyBitColorBlackOnRed("0"))
 
-	// flush the contents of the flobits buffer
+	// flush the contents of the flowbits buffer
 	foow.Flushbits()
 
 	// show work
@@ -643,7 +643,7 @@ func TestGeneral(t *testing.T) {
 
 	// ------------------------------------------------------------------------------
 
-	// flush the contents of the flobits buffer
+	// flush the contents of the flowbits buffer
 	foow.Flushbits()
 
 	r := bytes.NewReader(w.Bytes())

@@ -1,4 +1,4 @@
-package flobits
+package flowbits
 
 import (
 	"bytes"

@@ -1,4 +1,4 @@
-package flobits
+package flowbits
 
 // NextBitsUnsignedLittle returns 'n' bits in Little Endian as a uint64, but does not advance bit pointer.
 func (me *Bitstream) NextBitsUnsignedBig(n uint32) (uint64, error) {

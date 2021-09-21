@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/richinsley/flobits"
+	"github.com/richinsley/flowbits"
 	"github.com/richinsley/purtybits"
 )
 
@@ -106,7 +106,7 @@ func GenerateOutput(header *MPEGTS_Header) []string {
 }
 
 // GetMPEGTSAdaptionField parses the adaption field of an mpegts header
-func GetMPEGTSAdaptionField(foor *flobits.Bitstream) *MPEGTS_Header_AdaptionField {
+func GetMPEGTSAdaptionField(foor *flowbits.Bitstream) *MPEGTS_Header_AdaptionField {
 	adaption_field := &MPEGTS_Header_AdaptionField{}
 	adaption_field.adaption_field_length, _ = foor.GetUint8()
 	if adaption_field.adaption_field_length == 0 {
@@ -131,7 +131,7 @@ func GetMPEGTSAdaptionField(foor *flobits.Bitstream) *MPEGTS_Header_AdaptionFiel
 }
 
 // GetMPEGTSHeader parses an mpegts header
-func GetMPEGTSHeader(foor *flobits.Bitstream) *MPEGTS_Header {
+func GetMPEGTSHeader(foor *flowbits.Bitstream) *MPEGTS_Header {
 	mpegts_header := &MPEGTS_Header{}
 
 	// populate the fields of the mpegts header from the bitstream
@@ -173,7 +173,7 @@ func handleClient(conn *net.UDPConn) {
 
 	// create a byte reader from the buffer and instantiate a flowbits Bitstream decoder with it
 	r := bytes.NewReader(buf[:])
-	foor := flobits.NewBitstreamDecoder(r, 188)
+	foor := flowbits.NewBitstreamDecoder(r, 188)
 
 	// all mpegts header fields are in Big Endian format and begin with the byte 0x47
 	sync_byte, _ := foor.GetUint8()
