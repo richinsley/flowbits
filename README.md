@@ -5,5 +5,4 @@
   A robust, multi-purpose bitstream parser and encoder
 </h2>
 
----
 
